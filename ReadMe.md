@@ -1,74 +1,77 @@
-# 📌 Prédiction du Risque de Crédit avec Azure ML et Optuna
+# Prédiction du Risque de Crédit avec Azure ML, Optuna et MLflow
 
-Ce projet a pour objectif de **prédire le risque de défaut de crédit** à partir de données financières et démographiques, en utilisant **Azure ML**, **Optuna** pour l'optimisation des hyperparamètres, et **MLflow** pour le suivi des expérimentations sur Azure Cloud.
+Ce projet vise à **prédire le risque de défaut de crédit** à partir de données financières et démographiques, en utilisant **Azure Machine Learning** pour l'entraînement et le déploiement, **Optuna** pour l’optimisation des hyperparamètres, et **MLflow** pour le suivi des expérimentations sur Azure Cloud.
 
 ---
 
-## 🎯 **1. Contexte du Projet**
-### 📌 **1.1. Objectif du Dataset**
-- **Dataset utilisé** : [Give Me Some Credit](https://www.kaggle.com/c/GiveMeSomeCredit).
-- **Objectif** : Prédire si un client fera défaut dans les **2 prochaines années** (la variable cible est : `SeriousDlqin2yrs`).
-- **Problématique** :
-  - **Données déséquilibrées**
-  - **Présence de valeurs aberrantes**
+## **1. Contexte du Projet**
+
+### **1.1. Objectif du Dataset**
+- **Source** : [Give Me Some Credit (Kaggle)](https://www.kaggle.com/c/GiveMeSomeCredit).
+- **Objectif** : Prédire si un client fera défaut dans les **deux prochaines années** (variable cible : `SeriousDlqin2yrs`).
+- **Enjeux** :
+  - Fort **déséquilibre des classes** (faible taux de défaut).
+  - **Présence de valeurs aberrantes**.
   - **Données manquantes** (`MonthlyIncome`, `NumberOfDependents`).
-  - **Interprétabilité**
+  - **Exigence d’interprétabilité** pour un usage en contexte réel.
 
 ---
 
-## 🔥 **2. Approche Méthodologique**
-Ce projet s’articule autour de **trois grandes étapes** :
+## **2. Approche Méthodologique**
 
-### ✅ **2.1 Analyse Exploratoire et Prétraitement**
-- **Nettoyage des données** : Gestion des valeurs manquantes (remplissage par médiane, imputations).
-- **Transformation des variables** : Log-transformation pour réduire l’asymétrie.
-- **Détection des outliers** : Méthodes basées sur la distribution (boxplots, kurtosis).
+Le projet se structure autour de **trois grandes étapes** :
+
+### **2.1 Analyse Exploratoire et Prétraitement**
+- **Nettoyage des données** : Imputation des valeurs manquantes (médiane, règles métiers).
+- **Transformation des variables** : Log-transformations pour réduire la skewness.
+- **Détection des outliers** : Analyse par distribution (boxplots, kurtosis, z-scores).
 
 ---
 
-### 🤖 **2.2 Optimisation des Modèles**
-Nous avons testé plusieurs modèles :
-- **Régression Logistique** : Modèle classique et interprétable en classification binaire. Il sert de baseline et permet de comprendre l'impact des variables sur la probabilité de défaut.
-- **Random Forest** : Algorithme robuste et efficace, particulièrement en présence de bruit et de données hétérogènes. Grâce à son approche ensembliste, il réduit le risque de sur-apprentissage et capture des interactions complexes entre les variables.
-- **XGBoost** : Algorithmes de boosting puissants, particulièrement adaptés aux jeux de données déséquilibrés. Leur capacité à pondérer les erreurs et à ajuster dynamiquement l'importance des classes permet d'améliorer la performance prédictive, notamment sur la minorité des cas de détresse financière.
-- **LightGBM** : Alternative performante à XGBoost, LightGBM est optimisé pour les grands volumes de données et offre une meilleure rapidité d'entraînement. Suite à l'utilisation `d'AutoML` sur Azure, ce modèle a obtenu d'excellentes performances, ce qui m'a motivé son intégration dans notre comparaison.
+### **2.2 Modélisation et Optimisation**
 
-#### 🔎 **Pourquoi utiliser Optuna pour l'optimisation des hyperparamètres ?**
-- **Optimisation bayésienne** `L'estimation de densité de Parzen` avec Optuna est plus flexibles que les modèles gaussiens classiques.
-- **Exploration efficace du paramètre espace**.
+Plusieurs modèles de classification ont été testés :
 
-Les **hyperparamètres optimisés** :
+- **Régression Logistique** : Modèle de référence simple et interprétable, idéal pour évaluer l’impact des variables.
+- **Random Forest** : Modèle ensembliste robuste face au bruit et aux données hétérogènes.
+- **XGBoost** : Algorithme de boosting performant, adapté aux données déséquilibrées grâce à sa gestion fine des pondérations.
+- **LightGBM** : Variante optimisée de boosting, plus rapide et efficace sur de grands jeux de données. Ce modèle a montré d'excellents résultats via AutoML sur Azure.
+
+#### **Pourquoi Optuna pour l’optimisation ?**
+- **Optimisation bayésienne** (Tree-structured Parzen Estimator) : meilleure exploration de l’espace des hyperparamètres que la recherche aléatoire ou grid search.
+- **Recherche adaptative** : ajustement dynamique basé sur les essais précédents.
+
+#### **Hyperparamètres optimisés :**
 - **XGBoost** : `n_estimators`, `learning_rate`, `max_depth`
 - **LightGBM** : `n_estimators`, `learning_rate`
-- **RandomForest** : `n_estimators`, `max_depth`
-- **Logistic Regression** : `C`
+- **Random Forest** : `n_estimators`, `max_depth`
+- **Régression Logistique** : `C`
 
 ---
 
-### 📈 **2.3 Évaluation des Résultats**
-Nous avons suivi **trois métriques clés** :
-1. **AUC-ROC** : Mesure la capacité à discriminer entre bons et mauvais clients.
-2. **F1-score** : Prend en compte le déséquilibre des classes.
-3. **Gini** : 
+### **2.3 Évaluation des Modèles**
 
-Les **modèles de boosting** (XGBoost, LightGBM) offrent **les meilleurs scores AUC et donc Gini**.
+Trois métriques principales ont été utilisées :
+1. **AUC-ROC** : Mesure la capacité de discrimination du modèle.
+2. **F1-score** : Intéressant pour les données déséquilibrées.
+3. **Gini** : Interprétation du pouvoir discriminant (2×AUC − 1).
 
----
-
-## 📊 **3. Analyse des Résultats**
-### 📌 **3.1 Importance des Variables (SHAP & AzureML Interpret)**
-- **`RevolvingUtilizationOfUnsecuredLines`** : Indicateur clé du défaut.
-- **`DebtRatio`** : Plus élevé chez les clients en défaut.
-- **`MonthlyIncome`** : Impacte directement la solvabilité.
-
-### 📌 **3.2 Courbes de Précision-Rappel**
-- **Optimisation du seuil de décision** pour équilibrer **précision vs rappel**.
+Les modèles **boostés** (XGBoost, LightGBM) ont obtenu les **meilleurs scores AUC et Gini**, confirmant leur pertinence sur ce problème.
 
 ---
 
-## 🏆 **4. Soumission sur Kaggle**
-Meilleur résultat obtenue :
-- **private** : 0.86472
-- **public** : 0.85805
+## **3. Analyse des Résultats**
 
+### **3.1 Importance des Variables (via SHAP & AzureML Interpret)**
+- **`RevolvingUtilizationOfUnsecuredLines`** : Utilisation excessive des crédits renouvelables → facteur prédictif fort.
+- **`DebtRatio`** : Plus élevé chez les emprunteurs en difficulté.
+- **`MonthlyIncome`** : Corrélé à la capacité de remboursement.
 
+### **3.2 Seuil de Décision**
+- Ajustement du **seuil de classification** via les **courbes précision-rappel**, pour un meilleur compromis entre faux positifs et faux négatifs.
+
+---
+
+## **4. Résultats Kaggle**
+- **Score privé** : 0.86472  
+- **Score public** : 0.85805
